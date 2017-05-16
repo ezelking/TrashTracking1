@@ -38,11 +38,13 @@ ui <- fluidPage(
                     value = FALSE),
       selectInput(inputId = "School1",
                   label = "Select First School",
-                  choices = schools[,"VESTIGINGSNAAM"]
+                  choices = schools[,"VESTIGINGSNAAM"],
+                  selected = "Openbare Basisschool 't Eenspan"
                   ),
       selectInput(inputId = "School2",
                   label = "Select Second School",
-                  choices = schools[,"VESTIGINGSNAAM"]
+                  choices = schools[,"VESTIGINGSNAAM"],
+                  selected = "Samenwerkingsschool De Schans"
       ),
       hr()
       
@@ -58,7 +60,17 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  trashNearLine <- matrix(nrow = 100, ncol = 1)
   
+   # Checks if a point is close to the corridor
+  nearLine <- function(point, lineStart, lineEnd) {
+    v1 <- lineStart - lineEnd
+    v2 <- point - lineStart
+    m <- cbind(v1, v2)
+    d <- abs(det(m)) / sqrt(sum(v1 * v1))
+    return (d < 0.01)
+  }
+
   ########## Diagram 1 ##########
   output$corridor <- renderPlot({
     plot( trashData$latitude ~ trashData$longitude, ylab="latitude"
@@ -68,21 +80,42 @@ server <- function(input, output, session) {
     
     points(schoolCoordinates
            , col="blue")
-    
     if (input$SchoolCorridors){
+      for (i in 1:nrow(trashData)){
+        if (nearLine(c(trashData[i,"latitude"], trashData[i,"longitude"]),c(schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Longtitude"], schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Latitude"]),c(schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Longtitude"], schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Latitude"])))
+        trashNearLine <- c(trashNearLine, i)
+      }
+      
+      
+      
        ## Adds a line between the chosen locations
       segments(schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Longtitude"], schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Latitude"], schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Longtitude"], schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Latitude"])
-      #lines(schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1)],schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2)])
+
+       ## Saves the points that are close to the line
+      trashNearLine <- matrix(nrow = 100, ncol = 1)
+      j <- 1
+      for (i in 1:nrow(trashData)) {
+        if (nearLine(
+          c(trashData[i, "longitude"], trashData[i, "latitude"]),
+          c(schoolCoordinates[which(schools[, "VESTIGINGSNAAM"] == input$School1), "Longtitude"], schoolCoordinates[which(schools[, "VESTIGINGSNAAM"] == input$School1), "Latitude"]),
+          c(schoolCoordinates[which(schools[, "VESTIGINGSNAAM"] == input$School2), "Longtitude"], schoolCoordinates[which(schools[, "VESTIGINGSNAAM"] == input$School2), "Latitude"])
+        ))
+        {
+          trashNearLine[j] <- i
+          j <- j + 1
+        }
+      }
       
-      # schoolCoordinates[which(trashData[,"longitude"] < schoolCoordinates[which(schools[, "VESTIGINGSNAAM"]== "Openbare Basisschool 't Eenspan"), "Longtitude"] ), "Longtitude"]
-      
-      # points(#trashData$longitude[schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Longtitude"]< trashData$longitude < schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Longtitude"]]
-      #        #,trashData$latitude[schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School1),"Latitude"]<trashData$latitude<schoolCoordinates[which(schools[,"VESTIGINGSNAAM"] == input$School2),"Latitude"]]
-      #        trashData$longitude[schoolCoordinates[which(schools[, "VESTIGINGSNAAM"] == input$School1), "Longtitude"]]
-      #        , col="blue")
+       ## Colors the points that are close to the line
+      points(trashData$longitude[trashNearLine],trashData$latitude[trashNearLine],
+             col = "green")
        }
   })
 }
+
+
+
+
 
 shinyApp(ui = ui, server = server)
 
